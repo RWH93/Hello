@@ -1,0 +1,1 @@
+{"name":"rr-booking-diary","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node tests.mjs"},"engines":{"node":">=22.16"}}
