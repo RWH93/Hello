@@ -1,1 +1,22 @@
-{"name":"rr-booking-diary","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node tests.mjs"},"engines":{"node":">=22.16"}}
+{
+  "name": "rr-booking-diary",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests.mjs",
+    "prepare:cloudflare": "node cloudflare/prepare.mjs",
+    "test:cloudflare": "node cloudflare/prepare.mjs && node tests.mjs && node cloudflare/tests.mjs",
+    "check:cloudflare": "wrangler deploy --dry-run --outdir cloudflare/build",
+    "deploy:cloudflare": "wrangler deploy"
+  },
+  "engines": {
+    "node": ">=22.16"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.1"
+  }
+}
