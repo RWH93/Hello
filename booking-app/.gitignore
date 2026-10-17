@@ -1,0 +1,10 @@
+data/
+*.sqlite*
+.env*
+node_modules/
+.dev.vars*
+.wrangler/
+.wrangler-local/
+cloudflare/public/
+cloudflare/build/
+cloudflare/store.generated.mjs

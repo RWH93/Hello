@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {openStore} from './store.mjs';
+import {defaults,availability,canFit,validDay} from './scheduler.mjs';
+const d='2035-06-15';let count=0;function test(name,fn){fn();count++;console.log('PASS '+name);}
+const db=openStore(':memory:');
+const base={day:d,start:420,service:'exterior',name:'Test Customer',phone:'0400000000',email:'test@example.com',vehicle:'Test vehicle',suburb:'Test suburb',notes:'',travel:30};
+test('Closed by default until owner offers a time',()=>assert.equal(db.slots(d,'exterior').length,0));
+test('Only offered service types appear',()=>{db.offer({day:d,start:420,services:['exterior','full']});assert.equal(db.slots(d,'interior').length,0);assert.equal(db.slots(d,'full').length,1);});
+test('Service must finish by 5pm',()=>assert.throws(()=>db.offer({day:d,start:960,services:['full']})));
+let pending;test('Customer request persists as pending',()=>{pending=db.saveJob(base,true);assert.equal(pending.status,'pending');assert.equal(db.jobs().length,1);});
+test('Pending request holds time across services',()=>assert.equal(db.slots(d,'full').length,0));
+test('Duplicate request cannot double book',()=>assert.throws(()=>db.saveJob(base,true)));
+test('30-minute travel buffer prevents 8am start',()=>{db.offer({day:d,start:480,services:['exterior']});assert.equal(db.slots(d,'exterior').length,0);});
+test('8:30am is available after one-hour 7am job and travel',()=>{db.offer({day:d,start:510,services:['exterior']});assert.equal(db.slots(d,'exterior')[0].start,510);});
+test('Approval preserves appointment',()=>{db.status(pending.id,'confirmed');assert.equal(db.jobs()[0].status,'confirmed');});
+test('Blocking confirmed job is rejected',()=>assert.throws(()=>db.block({day:d,start:0,end:1440,note:'Private'})));
+test('Longer individual travel hides later starts',()=>{db.saveJob({...pending,status:'confirmed',travel:90});assert.equal(db.slots(d,'exterior').length,0);});
+test('Cancelling releases offered times',()=>{db.status(pending.id,'cancelled');assert.equal(db.slots(d,'exterior').length,3);});
+test('Whole day block hides every service',()=>{db.block({day:d,start:0,end:1440,note:'Personal appointment'});assert.equal(db.slots(d,'exterior').length,0);assert.equal(db.slots(d,'full').length,0);});
+test('Unblock restores availability',()=>{db.removeBlock(db.blocks()[0].id);assert.equal(db.slots(d,'exterior').length,3);});
+test('Unavailable/unoffered customer starts cannot be submitted',()=>assert.throws(()=>db.saveJob({...base,start:600},true)));
+test('Owner can arrange after hours with no overlap',()=>{const j=db.saveJob({...base,start:1080});assert.equal(j.status,'confirmed');assert.equal(j.end,1140);});
+test('Customer cannot request after hours',()=>assert.throws(()=>db.saveJob({...base,start:1200},true)));
+test('Past dates rejected',()=>assert.throws(()=>db.saveJob({...base,day:'2020-01-01'},true)));
+test('No public customer fields in availability',()=>{const s=db.slots(d,'exterior')[0];assert.deepEqual(Object.keys(s).sort(),['day','end','id','start','travel']);});
+test('Impossible date is invalid',()=>assert.equal(validDay('2035-02-30'),false));
+test('Jobs retain their service length after settings update',()=>{db.put('settings',{...defaults,services:{...defaults.services,exterior:{...defaults.services.exterior,minutes:90}}});assert.equal(db.jobs().find(j=>j.start===1080).end,1140);});
+db.db.close();console.log(`${count} scheduling checks passed.`);
